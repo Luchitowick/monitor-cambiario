@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Dashboard gerencial en tiempo real: tipo de cambio, cobre y UF para decisiones de compra de una importadora.">
+  <title>Monitor Cambiario de Compras · Importadora TecnoAndes</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Saltar al contenido</a>
+
+  <!-- ===== Encabezado: identidad + estado de conexión + controles globales ===== -->
+  <header class="app-header">
+    <div class="brand">
+      <h1>Monitor Cambiario de Compras</h1>
+      <p class="subtitle">Importadora TecnoAndes SpA · Gerencia de Finanzas y Abastecimiento</p>
+    </div>
+    <div class="header-actions">
+      <span id="status-pill" class="status-pill" data-state="loading" role="status" aria-live="polite">
+        <span class="dot" aria-hidden="true"></span><span class="label">Cargando datos…</span>
+      </span>
+      <span id="last-update" class="last-update">—</span>
+      <label class="switch">
+        <input type="checkbox" id="polling-toggle" checked>
+        <span class="switch-track" aria-hidden="true"></span>
+        <span>Auto-actualizar (5 min)</span>
+      </label>
+      <button id="refresh-btn" class="btn btn-primary" type="button">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Actualizar</span>
+      </button>
+      <button id="theme-btn" class="btn btn-ghost btn-icon" type="button" aria-label="Cambiar tema claro u oscuro" title="Cambiar tema">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Banner de error / modo respaldo -->
+  <div id="error-banner" class="banner" role="alert" hidden></div>
+
+  <main id="main">
+    <!-- ===== 1. Data storytelling: la decisión primero ===== -->
+    <section id="decision" class="decision is-loading" aria-labelledby="decision-title" aria-live="polite">
+      <div class="skeleton skeleton-badge"></div>
+      <div class="decision-body">
+        <div class="skeleton skeleton-line w-30"></div>
+        <h2 id="decision-title" class="skeleton skeleton-title"><span class="sr-only">Cargando decisión sugerida</span></h2>
+        <div class="skeleton skeleton-line w-80"></div>
+      </div>
+    </section>
+
+    <!-- ===== 2. Filtros (una sola fila sobre los gráficos) ===== -->
+    <section class="controls card" aria-label="Filtros y parámetros del análisis">
+      <fieldset class="segmented">
+        <legend>Indicador</legend>
+        <label><input type="radio" name="indicator" value="dolar"><span>Dólar</span></label>
+        <label><input type="radio" name="indicator" value="euro"><span>Euro</span></label>
+        <label><input type="radio" name="indicator" value="libra_cobre"><span>Cobre</span></label>
+        <label><input type="radio" name="indicator" value="uf"><span>UF</span></label>
+      </fieldset>
+      <fieldset class="segmented">
+        <legend>Período</legend>
+        <label><input type="radio" name="range" value="7"><span>7 días</span></label>
+        <label><input type="radio" name="range" value="15"><span>15 días</span></label>
+        <label><input type="radio" name="range" value="30"><span>30 días</span></label>
+      </fieldset>
+      <div class="field">
+        <label for="budget-rate">Dólar presupuestado <span class="unit">(CLP/USD)</span></label>
+        <input id="budget-rate" type="number" inputmode="decimal" min="1" step="1">
+      </div>
+      <div class="field">
+        <label for="purchase-usd">Compra mensual <span class="unit">(USD)</span></label>
+        <input id="purchase-usd" type="number" inputmode="numeric" min="0" step="1000">
+      </div>
+    </section>
+
+    <!-- ===== 3. KPIs ===== -->
+    <section id="kpis" class="kpis" aria-label="Indicadores clave de negocio">
+      <div class="kpi skeleton-card"></div><div class="kpi skeleton-card"></div><div class="kpi skeleton-card"></div><div class="kpi skeleton-card"></div><div class="kpi skeleton-card"></div>
+    </section>
+
+    <div class="layout">
+      <!-- ===== 4. Gráficos ===== -->
+      <div class="charts">
+        <article class="card chart-card">
+          <header class="card-head">
+            <div>
+              <h2 id="main-chart-title">Dólar observado</h2>
+              <p class="card-sub" id="main-chart-sub">CLP por USD</p>
+            </div>
+            <div class="card-tools">
+              <div class="legend" id="main-legend"></div>
+              <button type="button" class="btn btn-ghost btn-sm" id="table-toggle" aria-expanded="false" aria-controls="data-table-wrap">Ver tabla</button>
+            </div>
+          </header>
+          <div id="main-chart" class="chart"><div class="skeleton skeleton-chart"></div></div>
+          <div id="data-table-wrap" class="table-wrap" hidden></div>
+        </article>
+
+        <div class="chart-row">
+          <article class="card chart-card">
+            <header class="card-head">
+              <div>
+                <h2>Variación diaria</h2>
+                <p class="card-sub" id="bar-chart-sub">% respecto al día hábil anterior</p>
+              </div>
+              <div class="legend">
+                <span class="legend-item"><i class="sw sw-up"></i>Alza</span>
+                <span class="legend-item"><i class="sw sw-down"></i>Baja</span>
+              </div>
+            </header>
+            <div id="bar-chart" class="chart"><div class="skeleton skeleton-chart short"></div></div>
+          </article>
+
+          <article class="card chart-card">
+            <header class="card-head">
+              <div>
+                <h2>Dólar vs. cobre</h2>
+                <p class="card-sub" id="index-chart-sub">Índice base 100</p>
+              </div>
+              <div class="legend">
+                <span class="legend-item"><i class="sw sw-1"></i>Dólar</span>
+                <span class="legend-item"><i class="sw sw-2"></i>Cobre</span>
+              </div>
+            </header>
+            <div id="index-chart" class="chart"><div class="skeleton skeleton-chart short"></div></div>
+          </article>
+        </div>
+      </div>
+
+      <!-- ===== 5. Alertas y recomendaciones ejecutivas ===== -->
+      <aside class="card alerts-panel" aria-labelledby="alerts-title">
+        <header class="alerts-head">
+          <h2 id="alerts-title">Alertas y recomendaciones</h2>
+          <span id="alerts-count" class="alerts-count"></span>
+        </header>
+        <ul id="alerts-list" class="alerts-list" aria-live="polite">
+          <li class="skeleton skeleton-alert"></li><li class="skeleton skeleton-alert"></li><li class="skeleton skeleton-alert"></li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <p>Fuente: Banco Central de Chile vía <a href="https://mindicador.cl" target="_blank" rel="noopener">mindicador.cl</a> (API pública JSON). Los valores del dólar corresponden al dólar observado del día hábil.</p>
+    <p>Las recomendaciones son reglas de apoyo a la decisión y no constituyen asesoría financiera.</p>
+  </footer>
+
+  <!-- Scripts en orden de dependencia (scripts clásicos: funcionan también con doble clic / file://) -->
+  <script src="js/config.js"></script>
+  <script src="js/fallback-data.js"></script>
+  <script src="js/format.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/analytics.js"></script>
+  <script src="js/alerts.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
