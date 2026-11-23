@@ -126,7 +126,7 @@ main { display: grid; gap: var(--gap); padding-bottom: var(--gap); }
   background: var(--surface); border: 1px solid var(--border);
 }
 .status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--info); }
-.status-pill[data-state="live"] .dot, .status-pill[data-state="cache"] .dot { background: var(--good); box-shadow: 0 0 0 0 var(--good); animation: pulse 2s infinite; }
+.status-pill[data-state="live"] .dot, .status-pill[data-state="server"] .dot, .status-pill[data-state="cache"] .dot { background: var(--good); box-shadow: 0 0 0 0 var(--good); animation: pulse 2s infinite; }
 .status-pill[data-state="stale"] .dot { background: var(--warning); }
 .status-pill[data-state="fallback"] .dot { background: var(--critical); }
 .status-pill[data-state="loading"] .dot, .status-pill[data-state="refreshing"] .dot { background: var(--accent); animation: blink 1s infinite; }
