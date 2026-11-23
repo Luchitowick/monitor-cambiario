@@ -1,9 +1,10 @@
 /**
  * charts.js — Gráficos SVG nativos (sin librerías)
  * ---------------------------------------------------------------
- *  - LineChart: series temporales, media móvil, línea de umbral,
+ *  - LineChart: series temporales (diarias u horarias), línea de umbral,
  *    crosshair + tooltip, etiquetas directas, transición animada.
- *  - DivergingBarChart: variaciones diarias (+/−) desde una línea base 0.
+ *  - DivergingBarChart: barras divergentes (+/−) desde una línea base 0,
+ *    o columnas simples con { positiveOnly: true }.
  * Ambos son responsivos (ResizeObserver), accesibles por teclado
  * (← → para recorrer, Esc para cerrar) y respetan prefers-reduced-motion.
  */
@@ -65,6 +66,14 @@ App.charts = (() => {
       if (xs[mid] < x) lo = mid; else hi = mid;
     }
     return Math.abs(xs[lo] - x) <= Math.abs(xs[hi] - x) ? lo : hi;
+  }
+
+  /** Elige qué índices del eje X etiquetar sin que se superpongan (~90 px por etiqueta). */
+  function pickTicks(n, innerWidth, preferred) {
+    const maxTicks = Math.max(2, Math.floor(innerWidth / 90));
+    const pool = preferred && preferred.length ? preferred : Array.from({ length: n }, (_, i) => i).reverse();
+    const stride = Math.max(1, Math.ceil(pool.length / maxTicks));
+    return pool.filter((_, k) => k % stride === 0);
   }
 
   /* ---------- clase base: tamaño, tooltip, teclado ---------- */
@@ -164,8 +173,10 @@ App.charts = (() => {
    * data = {
    *   series: [{ id, name, points:[{date,value}], className, dashed?, endLabel?: fn }],
    *   threshold?: { value, label },
-   *   reference?: number,              // línea de referencia (ej. 100 en índice base 100)
-   *   yFormat: fn, tooltipRows?: fn(index) → [{label, value, swatch?}]
+   *   reference?: number,              // línea de referencia horizontal
+   *   yFormat: fn, tooltipRows?: fn(index) → [{label, value, swatch?}],
+   *   xFormat?: fn(date), titleFormat?: fn(date),   // etiquetas del eje X y título del tooltip
+   *   xTicks?: number[]                // índices preferidos para etiquetar el eje X
    * }
    * ================================================================ */
   class LineChart extends ChartBase {
@@ -231,13 +242,12 @@ App.charts = (() => {
       });
       svgEl('line', { x1: m.left, x2: w - m.right, y1: h - m.bottom, y2: h - m.bottom, class: 'axis-line' }, this.gAxis);
 
-      // --- eje X: ~1 etiqueta cada 90 px
-      const maxTicks = Math.max(2, Math.floor((w - m.left - m.right) / 90));
-      const stride = Math.max(1, Math.ceil(primary.length / maxTicks));
-      for (let i = primary.length - 1; i >= 0; i -= stride) {
+      // --- eje X: ~1 etiqueta cada 90 px (en los índices sugeridos si se entregan)
+      const xFormat = this.data.xFormat || App.format.dateShort;
+      pickTicks(primary.length, w - m.left - m.right, this.data.xTicks).forEach((i) => {
         const label = svgEl('text', { x: x(primary[i].date.getTime()), y: h - m.bottom + 18, 'text-anchor': 'middle', class: 'tick' }, this.gAxis);
-        label.textContent = App.format.dateShort(primary[i].date);
-      }
+        label.textContent = xFormat(primary[i].date);
+      });
 
       // --- línea de referencia (ej. base 100)
       this.gRef.innerHTML = '';
@@ -340,7 +350,7 @@ App.charts = (() => {
       this.hoverIndex = index;
       const { m, h, targets } = this.layout;
       const primary = this.data.series[0].points[index];
-      const key = App.analytics.dayKey(primary.date);
+      const key = primary.date.getTime();
       const px = targets[0].pts[index][0];
 
       this.crosshair.setAttribute('x1', px); this.crosshair.setAttribute('x2', px);
@@ -348,13 +358,14 @@ App.charts = (() => {
       this.hoverDots.innerHTML = '';
       let anchorY = targets[0].pts[index][1];
       targets.forEach(({ s, pts }) => {
-        const i = s.points.findIndex((p) => App.analytics.dayKey(p.date) === key);
+        const i = s.points.findIndex((p) => p.date.getTime() === key);
         if (i >= 0) svgEl('circle', { cx: pts[i][0], cy: pts[i][1], r: 5, class: `hover-dot ${s.className || ''}` }, this.hoverDots);
       });
       this.hoverGroup.style.opacity = '1';
 
       const rows = this.data.tooltipRows ? this.data.tooltipRows(index) : [];
-      const html = `<div class="tt-date">${App.format.dateLong(primary.date)}</div>${rows.map((r) => `
+      const title = (this.data.titleFormat || App.format.dateLong)(primary.date);
+      const html = `<div class="tt-date">${title}</div>${rows.map((r) => `
         <div class="tt-row"><span class="tt-label">${r.swatch ? `<i class="sw ${r.swatch}"></i>` : ''}${r.label}</span><strong>${r.value}</strong></div>`).join('')}`;
       anchorY = Math.max(m.top, anchorY);
       this.placeTooltip(html, px, anchorY);
@@ -362,8 +373,13 @@ App.charts = (() => {
   }
 
   /* ================================================================
-   * DivergingBarChart — variación diaria %
-   * data = { points:[{date, value(%), level}], yFormat, tooltipRows: fn(index) }
+   * DivergingBarChart — barras desde una línea base 0
+   * data = {
+   *   points:[{date, value}], yFormat, tooltipRows: fn(index),
+   *   xFormat?: fn(date), titleFormat?: fn(date),
+   *   barClass?: fn(point, index) → clase CSS extra (ej. días pasados),
+   *   positiveOnly?: boolean     // columnas simples: eje Y desde 0
+   * }
    * ================================================================ */
   class DivergingBarChart extends ChartBase {
     constructor(container, opts) {
@@ -398,16 +414,17 @@ App.charts = (() => {
     }
 
     draw(animate) {
-      const { points, yFormat } = this.data;
+      const { points, yFormat, positiveOnly } = this.data;
       const { w, h } = this.dims();
       if (!points.length) return;
 
-      const maxAbs = Math.max(...points.map((p) => Math.abs(p.value)), 0.05);
-      const ticks = niceTicks(-maxAbs, maxAbs, 4);
+      const maxAbs = Math.max(...points.map((p) => Math.abs(p.value)), positiveOnly ? 1 : 0.05);
+      const ticks = positiveOnly ? niceTicks(0, maxAbs, 4) : niceTicks(-maxAbs, maxAbs, 4);
       const lim = Math.max(Math.abs(ticks.min), Math.abs(ticks.max));
+      const lo = positiveOnly ? 0 : -lim;
       const longest = Math.max(...ticks.ticks.map((t) => yFormat(t).length));
       const m = { top: 12, right: 12, bottom: 30, left: Math.max(40, longest * 7 + 14) };
-      const y = scaleLinear([-lim, lim], [h - m.bottom, m.top]);
+      const y = scaleLinear([lo, lim], [h - m.bottom, m.top]);
       const band = (w - m.left - m.right) / points.length;
       const barW = Math.max(2, Math.min(28, band - 2)); // 2 px de separación entre barras
 
@@ -417,25 +434,25 @@ App.charts = (() => {
 
       this.gGrid.innerHTML = '';
       this.gAxis.innerHTML = '';
-      ticks.ticks.filter((t) => Math.abs(t) <= lim + 1e-9).forEach((t) => {
+      ticks.ticks.filter((t) => t >= lo - 1e-9 && t <= lim + 1e-9).forEach((t) => {
         svgEl('line', { x1: m.left, x2: w - m.right, y1: y(t), y2: y(t), class: t === 0 ? 'zero-line' : 'grid-line' }, this.gGrid);
         const label = svgEl('text', { x: m.left - 8, y: y(t), dy: '0.32em', 'text-anchor': 'end', class: 'tick' }, this.gAxis);
         label.textContent = yFormat(t);
       });
 
-      const maxTicks = Math.max(2, Math.floor((w - m.left - m.right) / 90));
-      const stride = Math.max(1, Math.ceil(points.length / maxTicks));
-      for (let i = points.length - 1; i >= 0; i -= stride) {
+      const xFormat = this.data.xFormat || App.format.dateShort;
+      pickTicks(points.length, w - m.left - m.right).forEach((i) => {
         const label = svgEl('text', { x: m.left + band * (i + 0.5), y: h - m.bottom + 18, 'text-anchor': 'middle', class: 'tick' }, this.gAxis);
-        label.textContent = App.format.dateShort(points[i].date);
-      }
+        label.textContent = xFormat(points[i].date);
+      });
 
       this.gBars.innerHTML = '';
       const y0 = y(0);
       points.forEach((p, i) => {
         const x0 = m.left + band * i + (band - barW) / 2;
         const yEnd = y(p.value);
-        const cls = p.value >= 0 ? 'bar bar-up' : 'bar bar-down';
+        const extra = this.data.barClass ? this.data.barClass(p, i) : '';
+        const cls = `bar ${p.value >= 0 ? 'bar-up' : 'bar-down'}${extra ? ` ${extra}` : ''}`;
         const path = svgEl('path', { d: DivergingBarChart.barPath(x0, barW, y0, Math.abs(yEnd - y0) < 1 ? y0 - Math.sign(p.value || 1) : yEnd), class: `${cls}${animate ? ' bar-enter' : ''}` }, this.gBars);
         if (animate) path.style.animationDelay = `${i * 18}ms`;
       });
@@ -458,7 +475,8 @@ App.charts = (() => {
       this.hoverGroup.style.opacity = '1';
       [...this.gBars.children].forEach((node, i) => node.classList.toggle('dimmed', i !== index));
       const rows = this.data.tooltipRows ? this.data.tooltipRows(index) : [];
-      const html = `<div class="tt-date">${App.format.dateLong(p.date)}</div>${rows.map((r) => `
+      const title = (this.data.titleFormat || App.format.dateLong)(p.date);
+      const html = `<div class="tt-date">${title}</div>${rows.map((r) => `
         <div class="tt-row"><span class="tt-label">${r.label}</span><strong>${r.value}</strong></div>`).join('')}`;
       this.placeTooltip(html, bx + band / 2, Math.min(y(p.value), y(0)));
     }
