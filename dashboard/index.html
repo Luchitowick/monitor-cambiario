@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Dashboard gerencial en tiempo real: tipo de cambio, cobre y UF para decisiones de compra de una importadora.">
-  <title>Monitor Cambiario de Compras · Importadora TecnoAndes</title>
+  <meta name="description" content="Dashboard gerencial en tiempo real: pronóstico del clima en Maipú para programar despachos refrigerados y turnos de un centro de distribución.">
+  <title>Monitor Climático Operativo · Distribuidora Frío Sur</title>
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -13,8 +13,8 @@
   <!-- ===== Encabezado: identidad + estado de conexión + controles globales ===== -->
   <header class="app-header">
     <div class="brand">
-      <h1>Monitor Cambiario de Compras</h1>
-      <p class="subtitle">Importadora TecnoAndes SpA · Gerencia de Finanzas y Abastecimiento</p>
+      <h1>Monitor Climático Operativo</h1>
+      <p class="subtitle">Distribuidora Frío Sur SpA · Centro de distribución Maipú · Gerencia de Operaciones y Logística</p>
     </div>
     <div class="header-actions">
       <span id="status-pill" class="status-pill" data-state="loading" role="status" aria-live="polite">
@@ -24,7 +24,7 @@
       <label class="switch">
         <input type="checkbox" id="polling-toggle" checked>
         <span class="switch-track" aria-hidden="true"></span>
-        <span>Auto-actualizar (5 min)</span>
+        <span>Auto-actualizar (10 min)</span>
       </label>
       <button id="refresh-btn" class="btn btn-primary" type="button">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -53,25 +53,27 @@
     <!-- ===== 2. Filtros (una sola fila sobre los gráficos) ===== -->
     <section class="controls card" aria-label="Filtros y parámetros del análisis">
       <fieldset class="segmented">
-        <legend>Indicador</legend>
-        <label><input type="radio" name="indicator" value="dolar"><span>Dólar</span></label>
-        <label><input type="radio" name="indicator" value="euro"><span>Euro</span></label>
-        <label><input type="radio" name="indicator" value="libra_cobre"><span>Cobre</span></label>
-        <label><input type="radio" name="indicator" value="uf"><span>UF</span></label>
+        <legend>Variable</legend>
+        <label><input type="radio" name="variable" value="temp"><span>Temperatura</span></label>
+        <label><input type="radio" name="variable" value="rainProb"><span>Lluvia</span></label>
+        <label><input type="radio" name="variable" value="wind"><span>Viento</span></label>
+        <label><input type="radio" name="variable" value="uv"><span>UV</span></label>
+        <label><input type="radio" name="variable" value="humidity"><span>Humedad</span></label>
+        <label><input type="radio" name="variable" value="pm25"><span>PM2,5</span></label>
       </fieldset>
       <fieldset class="segmented">
-        <legend>Período</legend>
-        <label><input type="radio" name="range" value="7"><span>7 días</span></label>
-        <label><input type="radio" name="range" value="15"><span>15 días</span></label>
-        <label><input type="radio" name="range" value="30"><span>30 días</span></label>
+        <legend>Ventana</legend>
+        <label><input type="radio" name="window" value="next24"><span>24 h</span></label>
+        <label><input type="radio" name="window" value="next72"><span>3 días</span></label>
+        <label><input type="radio" name="window" value="next168"><span>7 días</span></label>
       </fieldset>
       <div class="field">
-        <label for="budget-rate">Dólar presupuestado <span class="unit">(CLP/USD)</span></label>
-        <input id="budget-rate" type="number" inputmode="decimal" min="1" step="1">
+        <label for="heat-threshold">Umbral cadena de frío <span class="unit">(°C)</span></label>
+        <input id="heat-threshold" type="number" inputmode="decimal" min="10" max="45" step="0.5">
       </div>
       <div class="field">
-        <label for="purchase-usd">Compra mensual <span class="unit">(USD)</span></label>
-        <input id="purchase-usd" type="number" inputmode="numeric" min="0" step="1000">
+        <label for="cost-dh">Costo extra de frío <span class="unit">(CLP por °C·h)</span></label>
+        <input id="cost-dh" type="number" inputmode="numeric" min="0" step="500">
       </div>
     </section>
 
@@ -86,8 +88,8 @@
         <article class="card chart-card">
           <header class="card-head">
             <div>
-              <h2 id="main-chart-title">Dólar observado</h2>
-              <p class="card-sub" id="main-chart-sub">CLP por USD</p>
+              <h2 id="main-chart-title">Temperatura</h2>
+              <p class="card-sub" id="main-chart-sub">°C por hora</p>
             </div>
             <div class="card-tools">
               <div class="legend" id="main-legend"></div>
@@ -102,12 +104,13 @@
           <article class="card chart-card">
             <header class="card-head">
               <div>
-                <h2>Variación diaria</h2>
-                <p class="card-sub" id="bar-chart-sub">% respecto al día hábil anterior</p>
+                <h2>Máxima diaria vs. umbral</h2>
+                <p class="card-sub" id="bar-chart-sub">°C sobre o bajo el umbral · últimos 7 días y próximos 7</p>
               </div>
               <div class="legend">
-                <span class="legend-item"><i class="sw sw-up"></i>Alza</span>
-                <span class="legend-item"><i class="sw sw-down"></i>Baja</span>
+                <span class="legend-item"><i class="sw sw-up"></i>Sobre el umbral</span>
+                <span class="legend-item"><i class="sw sw-down"></i>Bajo el umbral</span>
+                <span class="legend-item"><i class="sw sw-past"></i>Días pasados</span>
               </div>
             </header>
             <div id="bar-chart" class="chart"><div class="skeleton skeleton-chart short"></div></div>
@@ -116,15 +119,11 @@
           <article class="card chart-card">
             <header class="card-head">
               <div>
-                <h2>Dólar vs. cobre</h2>
-                <p class="card-sub" id="index-chart-sub">Índice base 100</p>
-              </div>
-              <div class="legend">
-                <span class="legend-item"><i class="sw sw-1"></i>Dólar</span>
-                <span class="legend-item"><i class="sw sw-2"></i>Cobre</span>
+                <h2>Horas sobre el umbral por día</h2>
+                <p class="card-sub" id="hours-chart-sub">Próximos 7 días · horas</p>
               </div>
             </header>
-            <div id="index-chart" class="chart"><div class="skeleton skeleton-chart short"></div></div>
+            <div id="hours-chart" class="chart"><div class="skeleton skeleton-chart short"></div></div>
           </article>
         </div>
       </div>
@@ -143,8 +142,8 @@
   </main>
 
   <footer class="app-footer">
-    <p>Fuente: Banco Central de Chile vía <a href="https://mindicador.cl" target="_blank" rel="noopener">mindicador.cl</a> (API pública JSON). Los valores del dólar corresponden al dólar observado del día hábil.</p>
-    <p>Las recomendaciones son reglas de apoyo a la decisión y no constituyen asesoría financiera.</p>
+    <p>Fuente: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (API pública JSON, licencia CC BY 4.0): pronóstico meteorológico y calidad del aire para Maipú (−33,52; −70,77).</p>
+    <p>Caso de negocio ficticio con fines académicos. Las recomendaciones son reglas de apoyo a la decisión.</p>
   </footer>
 
   <!-- Scripts en orden de dependencia (scripts clásicos: funcionan también con doble clic / file://) -->

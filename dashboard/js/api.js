@@ -2,18 +2,18 @@
  * api.js — Capa de datos
  * ---------------------------------------------------------------
  * Responsabilidades:
- *  1. Consumir la API pública con fetch() + async/await.
+ *  1. Consumir la API pública Open-Meteo con fetch() + async/await.
  *  2. Cortar peticiones lentas (AbortController + timeout).
  *  3. Reintentar con backoff exponencial ante fallos transitorios.
  *  4. Cachear respuestas (memoria + localStorage) con TTL.
- *  5. Degradar con elegancia: caché vencida → datos de respaldo.
+ *  5. Degradar con elegancia: datos del servidor → caché vencida → respaldo.
  * Nunca lanza excepciones hacia la UI: siempre devuelve datos + su origen.
  */
 window.App = window.App || {};
 
 App.api = (() => {
-  const { API_BASE, FETCH_TIMEOUT_MS, RETRIES, CACHE_TTL_MS } = App.config;
-  const CACHE_PREFIX = 'monitor-cambiario:v1:';
+  const { ENDPOINTS, FETCH_TIMEOUT_MS, RETRIES, CACHE_TTL_MS } = App.config;
+  const CACHE_PREFIX = 'monitor-clima:v1:';
   const memoryCache = new Map();
 
   /** localStorage puede no existir o estar bloqueado (modo privado, iframes): siempre try/catch. */
@@ -47,7 +47,7 @@ App.api = (() => {
       return await response.json();
     } catch (error) {
       if (error.name === 'AbortError') throw new Error(`tiempo de espera agotado (${timeoutMs / 1000} s)`);
-      if (error instanceof TypeError) throw new Error('sin conexión o bloqueo de red/CORS');
+      if (error instanceof TypeError) throw new Error('sin conexión a internet');
       throw error;
     } finally {
       clearTimeout(timer);
@@ -70,14 +70,16 @@ App.api = (() => {
 
   /** Valida la forma mínima del payload antes de aceptarlo. */
   function isValidPayload(endpoint, data) {
-    if (!data || typeof data !== 'object') return false;
-    if (endpoint === 'root') return Boolean(data.dolar && data.tpm);
-    return Array.isArray(data.serie) && data.serie.length > 1;
+    if (!data || typeof data !== 'object' || data.error) return false;
+    const h = data.hourly;
+    if (!h || !Array.isArray(h.time) || h.time.length < 24) return false;
+    if (endpoint === 'forecast') return Array.isArray(h.temperature_2m) && Array.isArray(data.daily?.time);
+    return Array.isArray(h.pm2_5);
   }
 
   /**
    * Datos que el servidor de Streamlit descargó e inyectó en la página (app.py).
-   * Evitan depender de que el navegador pueda llamar a la API desde el iframe.
+   * Segunda vía por si el navegador no logra conectarse directamente.
    */
   function getServerData(endpoint) {
     const server = window.APP_SERVER_DATA;
@@ -94,8 +96,9 @@ App.api = (() => {
   }
 
   /**
-   * Obtiene un endpoint aplicando la estrategia: caché fresca → datos del servidor → red → caché vencida → respaldo.
-   * @param {string} endpoint  'dolar' | 'euro' | 'libra_cobre' | 'uf' | 'root'
+   * Obtiene un endpoint aplicando la estrategia:
+   * caché fresca → red (navegador) → datos del servidor → caché vencida → respaldo.
+   * @param {'forecast'|'air'} endpoint
    * @param {{force?: boolean}} options  force=true ignora la caché (botón "Actualizar")
    * @returns {Promise<{endpoint, data, source: 'live'|'server'|'cache'|'stale'|'fallback', fetchedAt: number|null, error?: Error}>}
    */
@@ -103,24 +106,17 @@ App.api = (() => {
     const key = CACHE_PREFIX + endpoint;
     const cached = readCache(key);
 
-    if (!force && cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+    if (!force && cached && Date.now() - cached.ts < CACHE_TTL_MS && isValidPayload(endpoint, cached.data)) {
       return { endpoint, data: cached.data, source: 'cache', fetchedAt: cached.ts };
     }
 
-    // Carga inicial: si el servidor ya trajo datos, se usan de inmediato
-    const server = getServerData(endpoint);
-    if (!force && server) {
-      writeCache(key, server.data);
-      return server;
-    }
-
     try {
-      const url = endpoint === 'root' ? API_BASE : `${API_BASE}/${endpoint}`;
-      const data = await fetchWithRetry(url);
+      const data = await fetchWithRetry(ENDPOINTS[endpoint]);
       if (!isValidPayload(endpoint, data)) throw new Error('respuesta con formato inesperado');
       writeCache(key, data);
       return { endpoint, data, source: 'live', fetchedAt: Date.now() };
     } catch (error) {
+      const server = getServerData(endpoint);
       if (server) return server;
       if (cached && isValidPayload(endpoint, cached.data)) {
         return { endpoint, data: cached.data, source: 'stale', fetchedAt: cached.ts, error };
@@ -133,11 +129,11 @@ App.api = (() => {
   const SOURCE_RANK = { live: 0, server: 1, cache: 1, stale: 2, fallback: 3 };
 
   /**
-   * Carga en paralelo todos los endpoints del dashboard.
+   * Carga en paralelo los dos endpoints del dashboard.
    * Promise.all es seguro porque getEndpoint() nunca rechaza.
    */
   async function loadDashboardData(options = {}) {
-    const endpoints = ['dolar', 'euro', 'libra_cobre', 'uf', 'root'];
+    const endpoints = Object.keys(ENDPOINTS);
     const results = await Promise.all(endpoints.map((ep) => getEndpoint(ep, options)));
 
     const byEndpoint = Object.fromEntries(results.map((r) => [r.endpoint, r]));
@@ -146,13 +142,8 @@ App.api = (() => {
     const timestamps = results.map((r) => r.fetchedAt).filter(Boolean);
 
     return {
-      series: {
-        dolar: byEndpoint.dolar.data.serie,
-        euro: byEndpoint.euro.data.serie,
-        libra_cobre: byEndpoint.libra_cobre.data.serie,
-        uf: byEndpoint.uf.data.serie,
-      },
-      root: byEndpoint.root.data,
+      forecast: byEndpoint.forecast.data,
+      air: byEndpoint.air.data,
       status: worst,
       errors,
       fetchedAt: timestamps.length ? Math.min(...timestamps) : null,

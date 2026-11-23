@@ -1,8 +1,8 @@
-# Monitor Cambiario de Compras — versión Streamlit
+# Monitor Climático Operativo — versión Streamlit
 
 Esta versión publica el dashboard (HTML + CSS + JS con gráficos SVG) en **Streamlit Community Cloud**. Streamlit funciona como hosting: `app.py` une los archivos del proyecto en un solo HTML y lo muestra con `components.html()`.
 
-La lógica del dashboard sigue corriendo en el navegador del usuario: el `fetch()` a mindicador.cl, los KPIs, las alertas y los gráficos. La documentación técnica completa está en `monitor-cambiario/README.md`.
+Los datos vienen de **Open-Meteo**, una API pública gratuita, sin API key y con CORS abierto. La lógica del dashboard corre en el navegador del usuario: el `fetch()` a la API, los KPIs, las alertas y los gráficos. La documentación técnica completa está en `dashboard/README.md`.
 
 ## Estructura
 
@@ -10,7 +10,7 @@ La lógica del dashboard sigue corriendo en el navegador del usuario: el `fetch(
 .
 ├── app.py                 Punto de entrada de Streamlit
 ├── requirements.txt       Dependencias (streamlit)
-└── monitor-cambiario/     Dashboard original (también funciona solo, abriendo index.html)
+└── dashboard/             Dashboard (también funciona solo, abriendo index.html)
 ```
 
 ## Probar en tu computador
@@ -25,7 +25,7 @@ Se abre en `http://localhost:8501`.
 ## Publicar en Streamlit Community Cloud (gratis)
 
 1. Crea un repositorio **público** en GitHub, por ejemplo `monitor-cambiario-streamlit`.
-2. Sube **el contenido de esta carpeta** (`app.py`, `requirements.txt` y la carpeta `monitor-cambiario/`) a la raíz del repositorio.
+2. Sube **el contenido de esta carpeta** (`app.py`, `requirements.txt` y la carpeta `dashboard/`) a la raíz del repositorio.
 3. Entra a <https://share.streamlit.io> e inicia sesión con tu cuenta de GitHub.
 4. Haz clic en **Create app → Deploy a public app from GitHub** y completa:
    - **Repository:** `tu-usuario/monitor-cambiario-streamlit`
@@ -38,4 +38,4 @@ Cada vez que hagas *push* al repositorio, la app se actualiza sola.
 ## Notas
 - Si la app queda inactiva varios días, Streamlit Cloud la "duerme". Al abrirla se presiona *Wake up* y vuelve en segundos. Conviene abrirla un rato antes de presentar.
 - Para ajustar el alto del área del dashboard, cambia `IFRAME_HEIGHT` en `app.py`.
-- `app.py` también consulta mindicador.cl **desde el servidor** (caché de 10 min) y entrega esos datos a la página. Así el dashboard muestra datos actuales aunque el navegador del usuario no pueda llamar a la API desde el iframe de Streamlit. Los datos de respaldo solo aparecen si fallan el servidor y el navegador.
+- `app.py` también consulta Open-Meteo **desde el servidor** (caché de 10 min) y entrega esos datos a la página. Si el navegador del usuario no puede conectarse a la API, el dashboard igual muestra datos actuales. Los datos de respaldo solo aparecen si fallan el servidor y el navegador.
