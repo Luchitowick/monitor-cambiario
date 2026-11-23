@@ -38,3 +38,4 @@ Cada vez que hagas *push* al repositorio, la app se actualiza sola.
 ## Notas
 - Si la app queda inactiva varios días, Streamlit Cloud la "duerme". Al abrirla se presiona *Wake up* y vuelve en segundos. Conviene abrirla un rato antes de presentar.
 - Para ajustar el alto del área del dashboard, cambia `IFRAME_HEIGHT` en `app.py`.
+- `app.py` también consulta mindicador.cl **desde el servidor** (caché de 10 min) y entrega esos datos a la página. Así el dashboard muestra datos actuales aunque el navegador del usuario no pueda llamar a la API desde el iframe de Streamlit. Los datos de respaldo solo aparecen si fallan el servidor y el navegador.

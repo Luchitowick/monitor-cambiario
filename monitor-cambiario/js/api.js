@@ -75,6 +75,17 @@ App.api = (() => {
     return Array.isArray(data.serie) && data.serie.length > 1;
   }
 
+  /**
+   * Datos que el servidor de Streamlit descargó e inyectó en la página (app.py).
+   * Evitan depender de que el navegador pueda llamar a la API desde el iframe.
+   */
+  function getServerData(endpoint) {
+    const server = window.APP_SERVER_DATA;
+    const data = server && server.data && server.data[endpoint];
+    if (!isValidPayload(endpoint, data)) return null;
+    return { endpoint, data, source: 'server', fetchedAt: server.fetchedAt || null };
+  }
+
   const readCache = (key) => memoryCache.get(key) || storage.get(key);
   function writeCache(key, data) {
     const entry = { ts: Date.now(), data };
@@ -83,10 +94,10 @@ App.api = (() => {
   }
 
   /**
-   * Obtiene un endpoint aplicando la estrategia: caché fresca → red → caché vencida → respaldo.
+   * Obtiene un endpoint aplicando la estrategia: caché fresca → datos del servidor → red → caché vencida → respaldo.
    * @param {string} endpoint  'dolar' | 'euro' | 'libra_cobre' | 'uf' | 'root'
    * @param {{force?: boolean}} options  force=true ignora la caché (botón "Actualizar")
-   * @returns {Promise<{endpoint, data, source: 'live'|'cache'|'stale'|'fallback', fetchedAt: number|null, error?: Error}>}
+   * @returns {Promise<{endpoint, data, source: 'live'|'server'|'cache'|'stale'|'fallback', fetchedAt: number|null, error?: Error}>}
    */
   async function getEndpoint(endpoint, { force = false } = {}) {
     const key = CACHE_PREFIX + endpoint;
@@ -96,6 +107,13 @@ App.api = (() => {
       return { endpoint, data: cached.data, source: 'cache', fetchedAt: cached.ts };
     }
 
+    // Carga inicial: si el servidor ya trajo datos, se usan de inmediato
+    const server = getServerData(endpoint);
+    if (!force && server) {
+      writeCache(key, server.data);
+      return server;
+    }
+
     try {
       const url = endpoint === 'root' ? API_BASE : `${API_BASE}/${endpoint}`;
       const data = await fetchWithRetry(url);
@@ -103,6 +121,7 @@ App.api = (() => {
       writeCache(key, data);
       return { endpoint, data, source: 'live', fetchedAt: Date.now() };
     } catch (error) {
+      if (server) return server;
       if (cached && isValidPayload(endpoint, cached.data)) {
         return { endpoint, data: cached.data, source: 'stale', fetchedAt: cached.ts, error };
       }
@@ -111,7 +130,7 @@ App.api = (() => {
   }
 
   /** Prioridad del estado global: el peor origen manda. */
-  const SOURCE_RANK = { live: 0, cache: 1, stale: 2, fallback: 3 };
+  const SOURCE_RANK = { live: 0, server: 1, cache: 1, stale: 2, fallback: 3 };
 
   /**
    * Carga en paralelo todos los endpoints del dashboard.

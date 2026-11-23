@@ -18,6 +18,7 @@ App.ui = (() => {
     loading: 'Cargando datos…',
     refreshing: 'Actualizando…',
     live: 'En vivo',
+    server: 'En vivo (servidor)',
     cache: 'En vivo (caché)',
     stale: 'Caché sin conexión',
     fallback: 'Modo respaldo',
@@ -44,7 +45,7 @@ App.ui = (() => {
 
   function showBanner(result) {
     const banner = $('#error-banner');
-    if (result.status === 'live' || result.status === 'cache') {
+    if (['live', 'server', 'cache'].includes(result.status)) {
       banner.hidden = true;
       return;
     }

@@ -9,7 +9,11 @@ gráficos) se sigue ejecutando en el navegador del usuario.
 
 Ejecutar localmente:   streamlit run app.py
 """
+import json
 import re
+import time
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import streamlit as st
@@ -38,6 +42,37 @@ st.markdown(
 )
 
 
+API_BASE = "https://mindicador.cl/api"
+ENDPOINTS = ["dolar", "euro", "libra_cobre", "uf", "root"]
+
+
+def _fetch_endpoint(endpoint: str):
+    """Descarga un endpoint desde el servidor (sin CORS ni sandbox del iframe)."""
+    url = API_BASE if endpoint == "root" else f"{API_BASE}/{endpoint}"
+    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "monitor-cambiario/1.0"})
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except Exception:  # noqa: BLE001 — cualquier fallo: reintenta y luego se omite
+            if attempt < 2:
+                time.sleep(0.6 * 2**attempt)
+    return None
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def fetch_server_data() -> dict:
+    """Consulta mindicador.cl desde el servidor de Streamlit (caché 10 min).
+
+    El navegador del usuario puede no lograr llamar a la API desde el iframe
+    sandbox de components.html() (origen "null", bloqueos de red móvil, etc.).
+    Estos datos se inyectan en la página como segunda fuente antes del respaldo.
+    """
+    with ThreadPoolExecutor(max_workers=len(ENDPOINTS)) as pool:
+        results = dict(zip(ENDPOINTS, pool.map(_fetch_endpoint, ENDPOINTS)))
+    return {"fetchedAt": int(time.time() * 1000), "data": {k: v for k, v in results.items() if v}}
+
+
 def build_html() -> str:
     """Une index.html + styles.css + todos los .js en un solo HTML autocontenido.
 
@@ -59,6 +94,14 @@ def build_html() -> str:
         return f"<script>\n{js}\n</script>"
 
     html = re.sub(r'<script src="([^"]+)"></script>', inline_script, html)
+
+    # 3) Datos obtenidos por el servidor, disponibles antes de que corra api.js
+    payload = json.dumps(fetch_server_data(), ensure_ascii=False).replace("</", "<\\/")
+    html = html.replace(
+        "<script>\n/**\n * config.js",
+        f"<script>window.APP_SERVER_DATA = {payload};</script>\n<script>\n/**\n * config.js",
+        1,
+    )
     return html
 
 
