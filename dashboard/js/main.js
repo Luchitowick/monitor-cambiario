@@ -103,7 +103,7 @@
       ui.renderLegend(document.getElementById('main-legend'), [
         { swatch: 'sw-main', label: meta.short },
         ...(variable === 'temp' ? [{ swatch: 'sw-sma', label: 'Sensación térmica' }] : []),
-        ...(thresholdValue != null ? [{ swatch: 'sw-threshold', label: 'Umbral' }] : []),
+        ...(thresholdValue != null ? [{ swatch: 'sw-threshold', label: `Umbral ${f.number(thresholdValue, meta.decimals)}${unitTxt}` }] : []),
       ]);
 
       const feelsByTime = new Map(s.window.feels.map((p) => [p.date.getTime(), p.value]));
