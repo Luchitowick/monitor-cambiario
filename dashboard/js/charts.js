@@ -187,9 +187,11 @@ App.charts = (() => {
       this.gRef = svgEl('g', { class: 'reference' }, this.svg);
       this.gThreshold = svgEl('g', { class: 'threshold' }, this.svg);
       this.thresholdLine = svgEl('line', { class: 'threshold-line' }, this.gThreshold);
-      this.thresholdText = svgEl('text', { class: 'threshold-label', 'text-anchor': 'start' }, this.gThreshold);
       this.gSeries = svgEl('g', { class: 'series' }, this.svg);
       this.gLabels = svgEl('g', { class: 'end-labels' }, this.svg);
+      // La etiqueta del umbral va en una capa sobre las series para que ninguna línea la tape
+      this.gThresholdLabel = svgEl('g', { class: 'threshold' }, this.svg);
+      this.thresholdText = svgEl('text', { class: 'threshold-label', 'text-anchor': 'start' }, this.gThresholdLabel);
       this.hoverGroup = svgEl('g', { class: 'hover', style: 'opacity:0' }, this.svg);
       this.crosshair = svgEl('line', { class: 'crosshair' }, this.hoverGroup);
       this.hoverDots = svgEl('g', {}, this.hoverGroup);
@@ -262,26 +264,39 @@ App.charts = (() => {
         this.thresholdLine.setAttribute('x2', w - m.right);
         this.thresholdLine.setAttribute('y1', 0);
         this.thresholdLine.setAttribute('y2', 0);
-        // Coloca la etiqueta en el extremo (izq./der.) y lado (arriba/abajo) más despejado de datos.
-        const edge = (pickLast) => series.map((s) => s.points[pickLast ? s.points.length - 1 : 0]).filter(Boolean);
-        const clearance = (pts, above) => Math.min(...pts.map((p) => (above ? y(threshold.value) - y(p.value) - 18 : y(p.value) - y(threshold.value) - 18)).map((d) => (d < 0 ? Infinity : d)), 999);
+        // Elige extremo (izq./der.) y lado (arriba/abajo) donde la etiqueta no choque con ninguna serie:
+        // revisa todos los puntos que caen bajo el ancho del texto, no solo los extremos.
+        const labelW = threshold.label.length * 6.6 + 12;
+        const ty = y(threshold.value);
         const options = [false, true].flatMap((right) => [true, false].map((above) => {
-          const pts = edge(right);
-          const blocked = pts.some((p) => {
-            const dy = y(p.value) - y(threshold.value);
-            return above ? dy < 0 && dy > -18 : dy > 0 && dy < 18;
-          });
-          return { right, above, score: blocked ? -1 : clearance(pts, above) };
+          const x0 = right ? w - m.right - labelW : m.left;
+          const x1 = right ? w - m.right : m.left + labelW;
+          const top = above ? ty - 18 : ty + 2;   // franja vertical que ocupa el texto
+          const bottom = above ? ty - 2 : ty + 18;
+          let hits = 0; let gap = Infinity;
+          series.forEach((s) => s.points.forEach((p) => {
+            const px = x(p.date.getTime());
+            if (px < x0 || px > x1) return;
+            const py = y(p.value);
+            if (py >= top && py <= bottom) hits += 1;
+            gap = Math.min(gap, above ? Math.abs(py - top) : Math.abs(py - bottom));
+          }));
+          return { right, above, score: hits ? -hits : gap };
         }));
         const best = options.sort((a, b) => b.score - a.score)[0];
         this.thresholdText.setAttribute('text-anchor', best.right ? 'end' : 'start');
         this.thresholdText.setAttribute('x', best.right ? w - m.right - 6 : m.left + 6);
         this.thresholdText.setAttribute('y', best.above ? -6 : 14);
-        this.thresholdText.textContent = threshold.label;
-        this.gThreshold.classList.toggle('no-anim', !animate);
-        this.gThreshold.style.transform = `translateY(${y(threshold.value)}px)`;
+        // Si en ninguna posición queda libre, no se dibuja (el valor sigue visible en la leyenda)
+        this.thresholdText.textContent = best.score < 0 ? '' : threshold.label;
+        [this.gThreshold, this.gThresholdLabel].forEach((g) => {
+          g.style.display = '';
+          g.classList.toggle('no-anim', !animate);
+          g.style.transform = `translateY(${y(threshold.value)}px)`;
+        });
       } else {
         this.gThreshold.style.display = 'none';
+        this.gThresholdLabel.style.display = 'none';
       }
 
       // --- series
