@@ -176,7 +176,7 @@ Decisiones de diseño:
 .
 ├── app.py                 Servidor Streamlit: une los archivos y aporta la segunda vía de datos
 ├── requirements.txt
-├── docs/                  Esta documentación
+├── evidencia/             Esta documentación y las evidencias
 └── dashboard/
     ├── index.html         HTML5 semántico (header, main, section, article, aside, footer, fieldset)
     ├── css/styles.css     Variables CSS, grid/flex, clamp(), modo oscuro, responsive, impresión

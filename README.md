@@ -12,9 +12,9 @@ Hecho con HTML5, CSS3 y JavaScript ES6, sin librerías externas: gráficos SVG p
 
 | Documento | Contenido |
 |---|---|
-| [Manual de usuario](docs/manual-de-usuario.md) | Cómo leer y usar cada parte del dashboard, con ejemplos y preguntas frecuentes |
-| [Documentación técnica](docs/documentacion-tecnica.md) | Arquitectura, APIs, consumo asíncrono y resiliencia, fórmulas de los KPIs, reglas de alerta y diseño de los gráficos |
-| [Evidencias y verificación](docs/evidencias-y-verificacion.md) | Pruebas de la conexión real a la API, pruebas en navegador, checklist y rúbrica |
+| [Manual de usuario](evidencia/manual-de-usuario.md) | Cómo leer y usar cada parte del dashboard, con ejemplos y preguntas frecuentes |
+| [Documentación técnica](evidencia/documentacion-tecnica.md) | Arquitectura, APIs, consumo asíncrono y resiliencia, fórmulas de los KPIs, reglas de alerta y diseño de los gráficos |
+| [Evidencias y verificación](evidencia/evidencias-y-verificacion.md) | Pruebas de la conexión real a la API, pruebas en navegador, checklist y rúbrica |
 | [README del dashboard](dashboard/README.md) | Cumplimiento de la rúbrica criterio por criterio y guion de presentación |
 
 ## Estructura
@@ -23,7 +23,7 @@ Hecho con HTML5, CSS3 y JavaScript ES6, sin librerías externas: gráficos SVG p
 .
 ├── app.py                 Punto de entrada de Streamlit (une los archivos y descarga datos desde el servidor)
 ├── requirements.txt       Dependencias (streamlit)
-├── docs/                  Documentación del proyecto
+├── evidencia/             Documentación y evidencias del proyecto
 └── dashboard/             Dashboard (también funciona solo, abriendo index.html)
     ├── index.html
     ├── css/styles.css

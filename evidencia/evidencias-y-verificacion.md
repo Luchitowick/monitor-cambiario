@@ -60,7 +60,7 @@ Interacciones verificadas:
 | 3 | Gráficos SVG responsivos y limpios | ✅ | `charts.js` + `styles.css` (unidades en ejes, sin chartjunk, móvil y proyector) |
 | 4 | Interactividad real | ✅ | Tooltips, filtros, simulador, botón Actualizar y polling cada 10 min (`main.js`, `charts.js`) |
 | 5 | Data storytelling | ✅ | Banner *Decisión sugerida* y panel de alertas (`alerts.js`, `ui.js`) |
-| 6 | Código limpio, modular y documentado | ✅ | 9 módulos JS comentados, HTML semántico, CSS con variables, README y carpeta `docs/` |
+| 6 | Código limpio, modular y documentado | ✅ | 9 módulos JS comentados, HTML semántico, CSS con variables, README y carpeta `evidencia/` |
 
 ## 5. Rúbrica (autoevaluación)
 
