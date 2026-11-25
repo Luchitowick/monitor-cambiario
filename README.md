@@ -1,19 +1,40 @@
-# Monitor Climático Operativo — versión Streamlit
+# Monitor Climático Operativo
 
-Esta versión publica el dashboard (HTML + CSS + JS con gráficos SVG) en **Streamlit Community Cloud**. Streamlit funciona como hosting: `app.py` une los archivos del proyecto en un solo HTML y lo muestra con `components.html()`.
+**Evaluación Sumativa 3 · Visualización de Datos · INACAP Sede Maipú** · Autor: Luis Becerra
 
-Los datos vienen de **Open-Meteo**, una API pública gratuita, sin API key y con CORS abierto. La lógica del dashboard corre en el navegador del usuario: el `fetch()` a la API, los KPIs, las alertas y los gráficos. La documentación técnica completa está en `dashboard/README.md`.
+Dashboard gerencial en tiempo real para **Distribuidora Frío Sur SpA** (caso ficticio), un centro de distribución de alimentos refrigerados en Maipú. Consume en vivo la API pública **[Open-Meteo](https://open-meteo.com)** (pronóstico del tiempo y calidad del aire) y responde:
+
+> **¿En qué horario despachamos, qué contingencias preparamos y cuánto nos cuesta el calor?**
+
+Hecho con HTML5, CSS3 y JavaScript ES6, sin librerías externas: gráficos SVG propios, KPIs, alertas automáticas y una decisión sugerida para la gerencia.
+
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [Manual de usuario](docs/manual-de-usuario.md) | Cómo leer y usar cada parte del dashboard, con ejemplos y preguntas frecuentes |
+| [Documentación técnica](docs/documentacion-tecnica.md) | Arquitectura, APIs, consumo asíncrono y resiliencia, fórmulas de los KPIs, reglas de alerta y diseño de los gráficos |
+| [Evidencias y verificación](docs/evidencias-y-verificacion.md) | Pruebas de la conexión real a la API, pruebas en navegador, checklist y rúbrica |
+| [README del dashboard](dashboard/README.md) | Cumplimiento de la rúbrica criterio por criterio y guion de presentación |
 
 ## Estructura
 
 ```
 .
-├── app.py                 Punto de entrada de Streamlit
+├── app.py                 Punto de entrada de Streamlit (une los archivos y descarga datos desde el servidor)
 ├── requirements.txt       Dependencias (streamlit)
+├── docs/                  Documentación del proyecto
 └── dashboard/             Dashboard (también funciona solo, abriendo index.html)
+    ├── index.html
+    ├── css/styles.css
+    └── js/                config, api, analytics, alerts, charts, ui, main…
 ```
 
-## Probar en tu computador
+## Ejecutar
+
+**Sin instalar nada:** abre `dashboard/index.html` con doble clic en Chrome, Edge o Firefox.
+
+**Con Streamlit:**
 
 ```bash
 pip install -r requirements.txt
@@ -22,20 +43,15 @@ streamlit run app.py
 
 Se abre en `http://localhost:8501`.
 
-## Publicar en Streamlit Community Cloud (gratis)
+## Publicación en Streamlit Community Cloud
 
-1. Crea un repositorio **público** en GitHub, por ejemplo `monitor-cambiario-streamlit`.
-2. Sube **el contenido de esta carpeta** (`app.py`, `requirements.txt` y la carpeta `dashboard/`) a la raíz del repositorio.
-3. Entra a <https://share.streamlit.io> e inicia sesión con tu cuenta de GitHub.
-4. Haz clic en **Create app → Deploy a public app from GitHub** y completa:
-   - **Repository:** `tu-usuario/monitor-cambiario-streamlit`
-   - **Branch:** `main`
-   - **Main file path:** `app.py`
-5. Haz clic en **Deploy**. En 1–2 minutos tendrás una URL del tipo `https://tu-app.streamlit.app` para entregar.
+La app se publica desde este repositorio (rama `main`, archivo principal `app.py`). Cada *push* a `main` la actualiza sola en 1–2 minutos.
 
-Cada vez que hagas *push* al repositorio, la app se actualiza sola.
+Para publicarla de nuevo: entra a <https://share.streamlit.io>, elige **Create app → Deploy a public app from GitHub** y completa el repositorio, la rama `main` y el archivo `app.py`.
 
 ## Notas
+
+- **Dos vías de datos:** el navegador consulta la API directamente. Además, `app.py` descarga los mismos datos desde el servidor (caché de 10 min) y los entrega a la página. Si el navegador no puede conectarse, el dashboard igual muestra datos reales. Los datos de respaldo (de demostración) solo aparecen si fallan las dos vías.
 - Si la app queda inactiva varios días, Streamlit Cloud la "duerme". Al abrirla se presiona *Wake up* y vuelve en segundos. Conviene abrirla un rato antes de presentar.
 - Para ajustar el alto del área del dashboard, cambia `IFRAME_HEIGHT` en `app.py`.
-- `app.py` también consulta Open-Meteo **desde el servidor** (caché de 10 min) y entrega esos datos a la página. Si el navegador del usuario no puede conectarse a la API, el dashboard igual muestra datos actuales. Los datos de respaldo solo aparecen si fallan el servidor y el navegador.
+- Datos meteorológicos: Open-Meteo, licencia CC BY 4.0.

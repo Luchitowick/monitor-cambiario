@@ -128,6 +128,7 @@ Los umbrales se configuran en `config.js`.
 6. **Resiliencia (30 s):** en F12 → Network → *Offline*, presionar *Actualizar* y mostrar que todo sigue funcionando con caché o respaldo.
 
 ## 6. Notas
+- Más documentación en la carpeta [`docs/`](../docs): [manual de usuario](../docs/manual-de-usuario.md), [documentación técnica](../docs/documentacion-tecnica.md) y [evidencias y verificación](../docs/evidencias-y-verificacion.md).
 - `fallback-data.js` contiene un snapshot de **demostración** (23-11-2026) con el formato exacto de la API. Solo se usa si no hay conexión ni caché.
 - Datos meteorológicos: [Open-Meteo](https://open-meteo.com), licencia CC BY 4.0.
 - Caso de negocio ficticio con fines académicos.
